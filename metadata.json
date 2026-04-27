@@ -1,0 +1,6 @@
+{
+  "name": "BR ANDAIMES",
+  "description": "Sistema de controle de estoque e aluguel de peças de andaimes com dashboard, gestão de clientes, ordens de serviço em PDF e notificações via WhatsApp.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
