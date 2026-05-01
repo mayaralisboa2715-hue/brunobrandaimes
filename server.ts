@@ -45,7 +45,8 @@ async function startServer() {
 
     // Test connection
     await db.raw('SELECT 1');
-    console.log('Database connection successful.');
+    await db.raw('PRAGMA journal_mode = WAL;');
+    console.log('Database connection successful (WAL mode enabled).');
 
     console.log('Checking tables...');
     const tables = [
@@ -114,10 +115,19 @@ async function startServer() {
 
   app.use(express.json());
 
+  // Request logging for debugging
+  app.use((req, res, next) => {
+    if (req.path !== '/api/health') {
+      console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+    }
+    next();
+  });
+
   app.get('/api/health', (req, res) => {
     res.json({ 
       status: db ? 'ok' : 'db_error', 
       database_ready: !!db,
+      db_initialized: true,
       time: new Date().toISOString(),
       node_env: process.env.NODE_ENV
     });
