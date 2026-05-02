@@ -30,22 +30,42 @@ export default function Inventory() {
     const method = editingItem ? 'PUT' : 'POST';
     const url = editingItem ? `/api/inventory/${editingItem.id}` : '/api/inventory';
     
-    await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData)
-    });
-    
-    setIsModalOpen(false);
-    setEditingItem(null);
-    setFormData({ name: '', quantity: 0, price: 0 });
-    fetchItems();
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Erro no servidor' }));
+        throw new Error(errorData.error || 'Erro ao salvar item no inventário');
+      }
+      
+      setIsModalOpen(false);
+      setEditingItem(null);
+      setFormData({ name: '', quantity: 0, price: 0 });
+      await fetchItems();
+      alert('Item salvo com sucesso!');
+    } catch (error) {
+      console.error('Error saving inventory item:', error);
+      alert(error instanceof Error ? error.message : 'Erro ao conectar-se ao servidor');
+    }
   };
 
   const handleDelete = async (id: number) => {
     if (!confirm('Tem certeza que deseja excluir esta peça?')) return;
-    await fetch(`/api/inventory/${id}`, { method: 'DELETE' });
-    fetchItems();
+    try {
+      const res = await fetch(`/api/inventory/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Erro ao excluir item');
+      }
+      fetchItems();
+    } catch (error) {
+      console.error('Error deleting inventory item:', error);
+      alert(error instanceof Error ? error.message : 'Erro ao excluir o item');
+    }
   };
 
   const filteredItems = items.filter(item => 

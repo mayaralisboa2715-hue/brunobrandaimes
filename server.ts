@@ -29,10 +29,22 @@ async function startServer() {
   let db: any;
   try {
     console.log('Initializing database connection...');
+    let dbPath = path.join(process.cwd(), 'data.sqlite');
+    
+    // Check if the current directory is writable
+    try {
+      const fs = await import('fs');
+      fs.appendFileSync(dbPath, '');
+      console.log('Current directory is writable, using:', dbPath);
+    } catch (e) {
+      console.warn('Current directory is NOT writable, falling back to /tmp/data.sqlite');
+      dbPath = '/tmp/data.sqlite';
+    }
+
     db = knex({
       client: 'better-sqlite3',
       connection: {
-        filename: path.join(process.cwd(), 'data.sqlite')
+        filename: dbPath
       },
       useNullAsDefault: true,
       pool: {
@@ -46,14 +58,16 @@ async function startServer() {
     // Test connection
     await db.raw('SELECT 1');
     await db.raw('PRAGMA journal_mode = WAL;');
-    console.log('Database connection successful (WAL mode enabled).');
+    await db.raw('PRAGMA foreign_keys = ON;');
+    console.log('Database connection successful (WAL mode and Foreign Keys enabled).');
+    console.log('Database path:', path.join(process.cwd(), 'data.sqlite'));
 
     console.log('Checking tables...');
     const tables = [
       {
         name: 'inventory',
         create: (table: any) => {
-          table.increments('id');
+          table.increments('id').primary();
           table.string('name').notNullable();
           table.integer('quantity').defaultTo(0);
           table.decimal('price', 10, 2).defaultTo(0);
@@ -63,7 +77,7 @@ async function startServer() {
       {
         name: 'customers',
         create: (table: any) => {
-          table.increments('id');
+          table.increments('id').primary();
           table.string('name').notNullable();
           table.string('tax_id');
           table.string('address');
@@ -74,10 +88,10 @@ async function startServer() {
       {
         name: 'rentals',
         create: (table: any) => {
-          table.increments('id');
-          table.integer('customer_id').unsigned().references('customers.id');
-          table.date('delivery_date');
-          table.date('return_date');
+          table.increments('id').primary();
+          table.integer('customer_id').unsigned().references('customers.id').notNullable();
+          table.date('delivery_date').notNullable();
+          table.date('return_date').notNullable();
           table.string('status').defaultTo('ACTIVE');
           table.timestamps(true, true);
         }
@@ -119,14 +133,27 @@ async function startServer() {
   app.use((req, res, next) => {
     if (req.path !== '/api/health') {
       console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+      if (['POST', 'PUT'].includes(req.method)) {
+        console.log('Body:', JSON.stringify(req.body));
+      }
     }
     next();
   });
 
-  app.get('/api/health', (req, res) => {
+  app.get('/api/health', async (req, res) => {
+    let db_writable = false;
+    if (db) {
+      try {
+        await db.raw('SELECT 1');
+        db_writable = true;
+      } catch (e) {
+        console.error('Database health check failed:', e);
+      }
+    }
     res.json({ 
-      status: db ? 'ok' : 'db_error', 
+      status: db && db_writable ? 'ok' : 'error', 
       database_ready: !!db,
+      database_writable: db_writable,
       db_initialized: true,
       time: new Date().toISOString(),
       node_env: process.env.NODE_ENV
@@ -154,22 +181,38 @@ async function startServer() {
   });
 
   app.post('/api/inventory', async (req, res) => {
-    const [id] = await db('inventory').insert(req.body);
-    const item = await db('inventory').where({ id }).first();
-    io.emit('inventory_updated');
-    res.json(item);
+    try {
+      console.log('Inserting into inventory:', req.body);
+      const [id] = await db('inventory').insert(req.body);
+      const item = await db('inventory').where({ id }).first();
+      io.emit('inventory_updated');
+      res.json(item);
+    } catch (error) {
+      console.error('Error in POST /api/inventory:', error);
+      res.status(500).json({ error: 'Failed to create inventory item', details: error instanceof Error ? error.message : String(error) });
+    }
   });
 
   app.put('/api/inventory/:id', async (req, res) => {
-    await db('inventory').where({ id: req.params.id }).update(req.body);
-    io.emit('inventory_updated');
-    res.json({ success: true });
+    try {
+      await db('inventory').where({ id: req.params.id }).update(req.body);
+      io.emit('inventory_updated');
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error in PUT /api/inventory:', error);
+      res.status(500).json({ error: 'Failed to update inventory item' });
+    }
   });
 
   app.delete('/api/inventory/:id', async (req, res) => {
-    await db('inventory').where({ id: req.params.id }).delete();
-    io.emit('inventory_updated');
-    res.json({ success: true });
+    try {
+      await db('inventory').where({ id: req.params.id }).delete();
+      io.emit('inventory_updated');
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error in DELETE /api/inventory:', error);
+      res.status(500).json({ error: 'Failed to delete inventory item' });
+    }
   });
 
   // Customers
@@ -179,16 +222,27 @@ async function startServer() {
   });
 
   app.post('/api/customers', async (req, res) => {
-    const [id] = await db('customers').insert(req.body);
-    const customer = await db('customers').where({ id }).first();
-    io.emit('customers_updated');
-    res.json(customer);
+    try {
+      console.log('Inserting into customers:', req.body);
+      const [id] = await db('customers').insert(req.body);
+      const customer = await db('customers').where({ id }).first();
+      io.emit('customers_updated');
+      res.json(customer);
+    } catch (error) {
+      console.error('Error in POST /api/customers:', error);
+      res.status(500).json({ error: 'Failed to create customer', details: error instanceof Error ? error.message : String(error) });
+    }
   });
 
   app.put('/api/customers/:id', async (req, res) => {
-    await db('customers').where({ id: req.params.id }).update(req.body);
-    io.emit('customers_updated');
-    res.json({ success: true });
+    try {
+      await db('customers').where({ id: req.params.id }).update(req.body);
+      io.emit('customers_updated');
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error in PUT /api/customers:', error);
+      res.status(500).json({ error: 'Failed to update customer' });
+    }
   });
 
   // Rentals
@@ -213,26 +267,37 @@ async function startServer() {
   });
 
   app.post('/api/rentals', async (req, res) => {
-    const { customer_id, delivery_date, return_date, items } = req.body;
-    
-    const [rental_id] = await db('rentals').insert({
-      customer_id,
-      delivery_date,
-      return_date,
-      status: 'ACTIVE'
-    });
-
-    for (const item of items) {
-      await db('rental_items').insert({
-        rental_id,
-        inventory_id: item.inventory_id,
-        quantity: item.quantity
+    const trx = await db.transaction();
+    try {
+      const { customer_id, delivery_date, return_date, items } = req.body;
+      console.log('Creating rental transaction:', { customer_id, items_count: items?.length });
+      
+      const [rental_id] = await trx('rentals').insert({
+        customer_id,
+        delivery_date,
+        return_date,
+        status: 'ACTIVE'
       });
-    }
 
-    io.emit('rentals_updated');
-    io.emit('inventory_updated');
-    res.json({ id: rental_id });
+      for (const item of items) {
+        await trx('rental_items').insert({
+          rental_id,
+          inventory_id: item.inventory_id,
+          quantity: item.quantity
+        });
+      }
+
+      await trx.commit();
+      console.log('Rental transaction committed successfully, ID:', rental_id);
+
+      io.emit('rentals_updated');
+      io.emit('inventory_updated');
+      res.json({ id: rental_id });
+    } catch (error) {
+      await trx.rollback();
+      console.error('Error in POST /api/rentals (rolled back):', error);
+      res.status(500).json({ error: 'Failed to create rental', details: error instanceof Error ? error.message : String(error) });
+    }
   });
 
   app.post('/api/rentals/:id/return', async (req, res) => {

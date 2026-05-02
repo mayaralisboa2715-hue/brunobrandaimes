@@ -73,28 +73,68 @@ export default function Rentals() {
 
   const handleCreateRental = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedCustomerId || selectedItems.length === 0) return;
+    if (!selectedCustomerId) {
+      alert('Por favor, selecione um cliente.');
+      return;
+    }
+    if (selectedItems.length === 0) {
+      alert('Por favor, adicione pelo menos uma peça.');
+      return;
+    }
 
-    await fetch('/api/rentals', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    setLoading(true);
+    try {
+      console.log('Sending rental request:', {
         customer_id: selectedCustomerId,
         delivery_date: deliveryDate,
         return_date: returnDate,
         items: selectedItems
-      })
-    });
+      });
+      
+      const res = await fetch('/api/rentals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customer_id: selectedCustomerId,
+          delivery_date: deliveryDate,
+          return_date: returnDate,
+          items: selectedItems
+        })
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Erro desconhecido no servidor' }));
+        throw new Error(errorData.error || 'Erro ao gerar locação');
+      }
 
-    setIsModalOpen(false);
-    resetForm();
-    fetchAll();
+      const responseData = await res.json();
+      console.log('Rental created successfully:', responseData);
+
+      setIsModalOpen(false);
+      resetForm();
+      await fetchAll();
+      alert('Locação gerada com sucesso!');
+    } catch (error) {
+      console.error('Error creating rental:', error);
+      alert(error instanceof Error ? error.message : 'Erro ao processar locação. Verifique sua conexão.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleReturn = async (id: number) => {
     if (!confirm('Confirmar devolução total das peças?')) return;
-    await fetch(`/api/rentals/${id}/return`, { method: 'POST' });
-    fetchAll();
+    try {
+      const res = await fetch(`/api/rentals/${id}/return`, { method: 'POST' });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Erro ao processar devolução');
+      }
+      fetchAll();
+    } catch (error) {
+      console.error('Error processing return:', error);
+      alert(error instanceof Error ? error.message : 'Erro ao registrar devolução');
+    }
   };
 
   const resetForm = () => {

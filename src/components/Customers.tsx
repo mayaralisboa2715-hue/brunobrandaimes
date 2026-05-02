@@ -29,16 +29,27 @@ export default function Customers() {
     const method = editingCustomer ? 'PUT' : 'POST';
     const url = editingCustomer ? `/api/customers/${editingCustomer.id}` : '/api/customers';
     
-    await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData)
-    });
-    
-    setIsModalOpen(false);
-    setEditingCustomer(null);
-    setFormData({ name: '', tax_id: '', address: '', phone: '' });
-    fetchCustomers();
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Erro no servidor' }));
+        throw new Error(errorData.error || 'Erro ao salvar cliente');
+      }
+      
+      setIsModalOpen(false);
+      setEditingCustomer(null);
+      setFormData({ name: '', tax_id: '', address: '', phone: '' });
+      await fetchCustomers();
+      alert('Cliente salvo com sucesso!');
+    } catch (error) {
+      console.error('Error saving customer:', error);
+      alert(error instanceof Error ? error.message : 'Erro ao conectar-se ao servidor');
+    }
   };
 
   const filteredCustomers = customers.filter(c => 
