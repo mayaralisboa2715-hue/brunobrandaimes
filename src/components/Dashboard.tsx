@@ -40,8 +40,71 @@ function StatCard({ title, value, icon: Icon, color, description }: StatCardProp
 }
 
 export default function Dashboard({ stats }: { stats: DashboardStats }) {
+  const [testStatus, setTestStatus] = useState<string | null>(null);
+
+  const testConnection = async () => {
+    setTestStatus('Testando...');
+    try {
+      const res = await fetch('/api/health');
+      const data = await res.json();
+      setTestStatus(`Sucesso! Status: ${data.status}`);
+    } catch (e) {
+      setTestStatus(`Falha: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+
+  const [serverLogs, setServerLogs] = useState<string[]>([]);
+  const [showLogs, setShowLogs] = useState(false);
+
+  const fetchServerLogs = async () => {
+    try {
+      const res = await fetch('/api/debug/logs');
+      const data = await res.json();
+      setServerLogs(data);
+      setShowLogs(true);
+    } catch (e) {
+      alert('Falha ao buscar logs do servidor');
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {/* Test Connection (DEBUG) */}
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-bold text-slate-700">Verificação de Sistema</h3>
+            <p className="text-xs text-slate-500">{testStatus || 'Pronto para teste'}</p>
+          </div>
+          <div className="flex gap-2">
+            <button 
+              onClick={testConnection}
+              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition-colors border border-slate-200"
+            >
+              Testar Conexão
+            </button>
+            <button 
+              onClick={fetchServerLogs}
+              className="px-4 py-2 bg-slate-800 text-white text-xs font-bold rounded-lg transition-colors shadow-sm"
+            >
+              Ver Logs do Servidor
+            </button>
+          </div>
+        </div>
+
+        {showLogs && (
+          <div className="mt-4 p-3 bg-slate-900 rounded-lg overflow-auto max-h-60">
+            <div className="flex justify-between items-center mb-2 border-b border-slate-700 pb-1">
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Logs Recentes</span>
+              <button onClick={() => setShowLogs(false)} className="text-slate-400 hover:text-white uppercase text-[10px] font-bold">Fechar</button>
+            </div>
+            {serverLogs.map((log, i) => (
+              <div key={i} className="text-[10px] font-mono text-emerald-400 whitespace-nowrap">{log}</div>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard 
           title="Estoque Geral" 

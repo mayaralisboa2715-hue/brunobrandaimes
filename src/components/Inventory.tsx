@@ -176,7 +176,10 @@ export default function Inventory() {
                   required
                   className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-slate-800 transition-all font-mono"
                   value={formData.quantity}
-                  onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) })}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value);
+                    setFormData({ ...formData, quantity: isNaN(val) ? 0 : val });
+                  }}
                 />
               </div>
               <div>
@@ -187,7 +190,10 @@ export default function Inventory() {
                   required
                   className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-slate-800 transition-all font-mono"
                   value={formData.price}
-                  onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) })}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    setFormData({ ...formData, price: isNaN(val) ? 0 : val });
+                  }}
                 />
               </div>
               <div className="flex gap-3 pt-4">

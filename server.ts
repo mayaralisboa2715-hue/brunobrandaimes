@@ -5,6 +5,7 @@ import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import knex from 'knex';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -17,6 +18,28 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 async function startServer() {
+  const logs: string[] = [];
+  const logLimit = 100;
+  const originalLog = console.log;
+  const originalError = console.error;
+  const originalWarn = console.warn;
+
+  console.log = (...args) => {
+    logs.push(`[LOG] ${new Date().toISOString()}: ${args.join(' ')}`);
+    if (logs.length > logLimit) logs.shift();
+    originalLog(...args);
+  };
+  console.error = (...args) => {
+    logs.push(`[ERROR] ${new Date().toISOString()}: ${args.join(' ')}`);
+    if (logs.length > logLimit) logs.shift();
+    originalError(...args);
+  };
+  console.warn = (...args) => {
+    logs.push(`[WARN] ${new Date().toISOString()}: ${args.join(' ')}`);
+    if (logs.length > logLimit) logs.shift();
+    originalWarn(...args);
+  };
+
   const app = express();
   const httpServer = createServer(app);
   const io = new Server(httpServer, {
@@ -29,15 +52,12 @@ async function startServer() {
   let db: any;
   try {
     console.log('Initializing database connection...');
-    let dbPath = path.join(process.cwd(), 'data.sqlite');
-    
-    // Check if the current directory is writable
+    let dbPath = './data.sqlite';
     try {
-      const fs = await import('fs');
       fs.appendFileSync(dbPath, '');
-      console.log('Current directory is writable, using:', dbPath);
+      console.log('Using database at:', path.resolve(dbPath));
     } catch (e) {
-      console.warn('Current directory is NOT writable, falling back to /tmp/data.sqlite');
+      console.warn('Database path NOT writable, falling back to /tmp/data.sqlite');
       dbPath = '/tmp/data.sqlite';
     }
 
@@ -111,23 +131,41 @@ async function startServer() {
       if (!(await db.schema.hasTable(name))) {
         console.log(`Creating table ${name}...`);
         await db.schema.createTable(name, create);
-      } else if (name === 'inventory') {
-        const hasPrice = await db.schema.hasColumn('inventory', 'price');
-        if (!hasPrice) {
-          console.log('Adding price column to inventory...');
-          await db.schema.table('inventory', table => {
-            table.decimal('price', 10, 2).defaultTo(0);
-          });
+      } else {
+        const columns = await db(name).columnInfo();
+        console.log(`Table ${name} exists with columns:`, Object.keys(columns).join(', '));
+        
+        if (name === 'inventory') {
+          const hasPrice = await db.schema.hasColumn('inventory', 'price');
+          if (!hasPrice) {
+            console.log('Adding price column to inventory...');
+            await db.schema.table('inventory', table => {
+              table.decimal('price', 10, 2).defaultTo(0);
+            });
+          }
         }
       }
     }
-    console.log('Schema verification complete.');
+    // Schema verification complete.
   } catch (error) {
     console.error('DATABASE CRITICAL ERROR:', error);
-    // Don't exit(1), let the server start so we can see the error in the health API
   }
 
+  // Logging middleware (MUST BE ONE OF THE FIRST)
+  app.use((req, res, next) => {
+    const timestamp = new Date().toISOString();
+    const logMsg = `${timestamp} - RECV: ${req.method} ${req.path}`;
+    logs.push(logMsg);
+    if (logs.length > logLimit) logs.shift();
+    originalLog(logMsg);
+    next();
+  });
+
   app.use(express.json());
+
+  app.get('/api/debug/logs', (req, res) => {
+    res.json(logs);
+  });
 
   // Request logging for debugging
   app.use((req, res, next) => {
