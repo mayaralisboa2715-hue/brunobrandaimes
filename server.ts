@@ -166,6 +166,11 @@ async function startServer() {
   app.get('/api/debug/logs', (req, res) => {
     res.json(logs);
   });
+  
+  app.post('/api/debug/client-error', (req, res) => {
+    console.error('CLIENT ERROR:', req.body);
+    res.json({ ok: true });
+  });
 
   // Request logging for debugging
   app.use((req, res, next) => {
@@ -397,7 +402,18 @@ async function startServer() {
       appType: 'spa',
     });
     app.use(vite.middlewares);
-    console.log('Vite middleware initialized.');
+    app.get('*', async (req, res, next) => {
+      try {
+        const url = req.originalUrl;
+        const template = await fs.promises.readFile(path.resolve(process.cwd(), 'index.html'), 'utf-8');
+        const html = await vite.transformIndexHtml(url, template);
+        res.status(200).set({ 'Content-Type': 'text/html' }).end(html);
+      } catch (e) {
+        vite.ssrFixStacktrace(e as Error);
+        next(e);
+      }
+    });
+    console.log('Vite middleware initialized with fallback handler.');
   } else {
     console.log('Serving static files from:', distPath);
     app.use(express.static(distPath));

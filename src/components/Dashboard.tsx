@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Package, 
   ArrowRightLeft, 
@@ -8,7 +8,6 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { DashboardStats } from '../types';
-import { motion } from 'motion/react';
 import { cn } from '../lib/utils';
 
 interface StatCardProps {
@@ -21,9 +20,8 @@ interface StatCardProps {
 
 function StatCard({ title, value, icon: Icon, color, description }: StatCardProps) {
   return (
-    <motion.div 
-      whileHover={{ y: -2 }}
-      className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all"
+    <div 
+      className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5"
     >
       <div className="text-slate-500 text-[10px] font-black uppercase mb-1 tracking-widest">{title}</div>
       <div className="flex items-end justify-between">
@@ -35,7 +33,7 @@ function StatCard({ title, value, icon: Icon, color, description }: StatCardProp
           <Icon size={16} strokeWidth={3} />
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
 

@@ -18,7 +18,6 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { io } from 'socket.io-client';
-import { motion, AnimatePresence } from 'motion/react';
 import { cn, formatDate } from './lib/utils';
 import { DashboardStats, InventoryItem, Customer, Rental } from './types';
 import jsPDF from 'jspdf';
@@ -72,7 +71,7 @@ export default function App() {
   ];
 
   return (
-    <div className="flex h-screen bg-[#F8FAFC] text-[#1E293B] font-sans overflow-hidden">
+    <div className="flex min-h-screen bg-[#F8FAFC] text-[#1E293B] font-sans overflow-hidden">
       {/* Sidebar */}
       <aside 
         className={cn(
@@ -144,21 +143,12 @@ export default function App() {
         </header>
 
         <div className="flex-1 overflow-auto p-6">
-
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2 }}
-          >
+          <div className="max-w-7xl mx-auto">
             {activeTab === 'dashboard' && <Dashboard stats={stats} />}
             {activeTab === 'inventory' && <Inventory />}
             {activeTab === 'customers' && <Customers />}
             {activeTab === 'rentals' && <Rentals />}
-          </motion.div>
-        </AnimatePresence>
+          </div>
         </div>
       </main>
     </div>
