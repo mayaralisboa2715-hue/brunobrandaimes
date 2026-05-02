@@ -74,7 +74,7 @@ export default function Dashboard({ stats }: { stats: DashboardStats }) {
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-bold text-slate-700">Verificação de Sistema</h3>
-            <p className="text-xs text-slate-500">{testStatus || 'Pronto para teste'}</p>
+            <p className="text-xs text-slate-500">{testStatus || 'Pronto para teste'} | {window.location.host}</p>
           </div>
           <div className="flex gap-2">
             <button 
@@ -87,19 +87,27 @@ export default function Dashboard({ stats }: { stats: DashboardStats }) {
               onClick={fetchServerLogs}
               className="px-4 py-2 bg-slate-800 text-white text-xs font-bold rounded-lg transition-colors shadow-sm"
             >
-              Ver Logs do Servidor
+              Logs do Servidor
             </button>
           </div>
         </div>
 
         {showLogs && (
-          <div className="mt-4 p-3 bg-slate-900 rounded-lg overflow-auto max-h-60">
+          <div className="mt-4 p-3 bg-slate-900 rounded-lg overflow-auto max-h-80">
             <div className="flex justify-between items-center mb-2 border-b border-slate-700 pb-1">
               <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Logs Recentes</span>
               <button onClick={() => setShowLogs(false)} className="text-slate-400 hover:text-white uppercase text-[10px] font-bold">Fechar</button>
             </div>
-            {serverLogs.map((log, i) => (
-              <div key={i} className="text-[10px] font-mono text-emerald-400 whitespace-nowrap">{log}</div>
+            {serverLogs.length === 0 && <div className="text-[10px] text-slate-500 italic">Sem logs registrados</div>}
+            {[...serverLogs].reverse().map((log, i) => (
+              <div key={i} className={cn(
+                "text-[10px] font-mono whitespace-nowrap mb-0.5",
+                log.includes('ERROR') ? 'text-red-400' : 
+                log.includes('WARN') ? 'text-amber-400' :
+                log.includes('RECV') ? 'text-sky-400' : 'text-emerald-400'
+              )}>
+                {log}
+              </div>
             ))}
           </div>
         )}

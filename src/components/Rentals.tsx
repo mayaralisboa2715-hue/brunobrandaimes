@@ -107,7 +107,7 @@ export default function Rentals() {
         throw new Error(errorData.error || 'Erro ao gerar locação');
       }
 
-      const responseData = await res.json();
+      const responseData = await res.json().catch(() => ({}));
       console.log('Rental created successfully:', responseData);
 
       setIsModalOpen(false);

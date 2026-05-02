@@ -378,8 +378,19 @@ async function startServer() {
     console.log('Client connected');
   });
 
+  // Log all errors
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error('SERVER ERROR:', err);
+    res.status(500).json({ 
+      error: 'Erro interno no servidor', 
+      details: err instanceof Error ? err.message : String(err) 
+    });
+  });
+
   // Vite Integration
-  console.log('Initializing Vite middleware...');
+  console.log('Initializing Vite/Static middleware...');
+  const distPath = path.resolve(process.cwd(), 'dist');
+  
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -388,9 +399,10 @@ async function startServer() {
     app.use(vite.middlewares);
     console.log('Vite middleware initialized.');
   } else {
-    app.use(express.static(path.join(__dirname, 'dist')));
+    console.log('Serving static files from:', distPath);
+    app.use(express.static(distPath));
     app.get('*', (req, res) => {
-      res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+      res.sendFile(path.join(distPath, 'index.html'));
     });
   }
 
